@@ -1,6 +1,5 @@
 """
-url_analyzer.py — Real network-based URL risk analysis.
-Performs live DNS, WHOIS, SSL, HTTP checks for accurate feature values.
+url_analyzer.py — URL risk analysis with piracy, adult, and threat feed detection.
 """
 import re
 import math
@@ -18,17 +17,48 @@ PHISHING_KEYWORDS = [
     "ebayisapi", "paypal", "credential", "validate"
 ]
 
-SUSPICIOUS_TLDS = {".xyz", ".tk", ".ml", ".ga", ".cf", ".gq", ".pw",
-                   ".top", ".click", ".link", ".download", ".win", ".buzz",
-                   ".rest", ".monster", ".icu"}
+SUSPICIOUS_TLDS = {
+    ".xyz", ".tk", ".ml", ".ga", ".cf", ".gq", ".pw", ".top", ".click",
+    ".link", ".download", ".win", ".buzz", ".rest", ".monster", ".icu",
+    ".work", ".party", ".xxx", ".adult", ".sex"
+}
 
-# Known illegal/piracy/malicious domains — always flagged as malicious
+TRUSTED_DOMAINS = {
+    "google.com", "amazon.com", "microsoft.com", "apple.com", "github.com",
+    "sbi.co.in", "hdfcbank.com", "icicibank.com", "axisbank.com",
+    "irctc.co.in", "gov.in", "nic.in", "flipkart.com", "paytm.com",
+    "youtube.com", "facebook.com", "twitter.com", "linkedin.com",
+    "instagram.com", "wikipedia.org", "stackoverflow.com"
+}
+
+PIRACY_KEYWORDS = [
+    "torrent", "yts", "rarbg", "1337x", "piratebay", "kickass", "kat",
+    "moviesfree", "download-movies", "free-movies", "watch-free",
+    "cracked-software", "full-movie", "hdmovies", "streamfree", "mp4moviez",
+    "filmyzilla", "tamilrockers", "moviesflix", "worldfree4u", "pirate",
+    "crack", "keygen", "warez", "nulled", "hdrip", "bluray", "dvdrip",
+    "mkv-download", "720p", "1080p", "4k-download", "leaked", "ibomma",
+    "movierulz", "bollyflix", "kuttymovie", "isaimini", "tamilgun",
+    "cinemavilla", "moviesda", "netmirror", "vegamovie", "hdhub",
+    "skymovie", "filmywap", "9xmovie", "jiorockers", "isaidub",
+    "downloadhub", "coolmoviez", "extramovies", "katmoviehd",
+    "moviescounter", "afilmywap", "openload", "streamango",
+    "skidrowreloaded", "fitgirl", "oceanofgames", "igg-games",
+    "steamunlocked", "apunkagames", "libgen", "freecoursesite"
+]
+
+ADULT_KEYWORDS = [
+    "porn", "xxx", "sex", "adult", "nude", "hentai", "escort",
+    "hotgirls", "freeporn", "pornhub", "xvideos", "xhamster",
+    "redtube", "sexvideo", "livecam", "erotic", "cam4", "onlyfans",
+    "brazzers", "bangbros", "naughty", "milf", "fetish", "nsfw"
+]
+
 BLACKLISTED_DOMAINS = {
-    # Piracy - Movies/TV
     "ibomma.com", "ibomma.net", "ibomma.in", "ibomma.org",
     "netmirror.org", "netmirror.net", "netmirror.in",
     "tamilrockers.com", "tamilrockers.net", "tamilrockers.ws",
-    "movierulz.com", "movierulz.net", "movierulz.tc", "movierulz.plz",
+    "movierulz.com", "movierulz.net", "movierulz.tc",
     "filmyzilla.com", "filmyzilla.net", "filmyzilla.in",
     "123movies.com", "123movies.net", "gomovies.com",
     "fmovies.to", "fmovies.com", "putlocker.com", "putlockers.com",
@@ -53,32 +83,14 @@ BLACKLISTED_DOMAINS = {
     "moviescounter.com", "moviescounter.net",
     "afilmywap.com", "afilmywap.in", "filmywap.com",
     "openload.co", "streamango.com",
-    # Piracy - Software/Games
     "crackedpc.com", "crackwatch.com", "skidrowreloaded.com",
     "fitgirl-repacks.site", "oceanofgames.com", "igg-games.com",
     "steamunlocked.net", "apunkagames.com",
-    # Piracy - Books/Courses
     "libgen.is", "libgen.rs", "libgen.fun", "z-lib.org",
     "booksc.org", "freecoursesite.com", "coursesghar.com",
-    # Adult/Illegal content
     "xvideos.com", "xnxx.com", "pornhub.com", "xhamster.com",
-    # Gambling/Illegal betting
+    "redtube.com", "youporn.com", "tube8.com", "spankbang.com",
     "bet365.com", "1xbet.com", "betway.com",
-}
-
-PIRACY_KEYWORDS = [
-    "torrent", "pirate", "crack", "keygen", "warez", "nulled",
-    "free-download", "full-movie", "hdrip", "bluray", "dvdrip",
-    "mkv-download", "720p", "1080p", "4k-download", "leaked",
-    "illegal", "piracy", "copyright"
-]
-
-TRUSTED_DOMAINS = {
-    "google.com", "amazon.com", "microsoft.com", "apple.com", "github.com",
-    "sbi.co.in", "hdfcbank.com", "icicibank.com", "axisbank.com",
-    "irctc.co.in", "gov.in", "nic.in", "flipkart.com", "paytm.com",
-    "youtube.com", "facebook.com", "twitter.com", "linkedin.com",
-    "instagram.com", "wikipedia.org", "stackoverflow.com"
 }
 
 
@@ -89,8 +101,7 @@ def _entropy(s: str) -> float:
     return round(-sum(p * math.log2(p) for p in freq.values()), 3)
 
 
-def _dns_resolve(domain: str) -> tuple[str, bool]:
-    """Returns (ip_address, resolved). Live DNS lookup."""
+def _dns_resolve(domain: str) -> tuple:
     try:
         ip = socket.gethostbyname(domain)
         return ip, True
@@ -103,7 +114,6 @@ def _is_ip_address(s: str) -> bool:
 
 
 def _check_ssl(domain: str, port: int = 443) -> dict:
-    """Live SSL certificate check."""
     result = {"ssl_valid": 0, "ssl_days_left": -1, "ssl_issuer": ""}
     try:
         ctx = ssl.create_default_context()
@@ -125,7 +135,6 @@ def _check_ssl(domain: str, port: int = 443) -> dict:
 
 
 def _check_whois(domain: str) -> dict:
-    """Live WHOIS domain age lookup."""
     result = {"domain_age_days": -1, "registrar": "", "whois_available": 0}
     try:
         import whois
@@ -144,14 +153,9 @@ def _check_whois(domain: str) -> dict:
 
 
 def _check_http(url: str) -> dict:
-    """Live HTTP response check — status, redirects, response time."""
     result = {
-        "http_status": 0,
-        "redirect_count": 0,
-        "final_url": url,
-        "response_time_ms": -1,
-        "page_title": "",
-        "server_header": ""
+        "http_status": 0, "redirect_count": 0, "final_url": url,
+        "response_time_ms": -1, "page_title": "", "server_header": ""
     }
     try:
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
@@ -163,7 +167,6 @@ def _check_http(url: str) -> dict:
         result["final_url"] = resp.url
         result["response_time_ms"] = round(elapsed, 1)
         result["server_header"] = resp.headers.get("Server", "")[:40]
-        # Extract page title
         title_match = re.search(r'<title[^>]*>(.*?)</title>', resp.text[:3000], re.IGNORECASE | re.DOTALL)
         if title_match:
             result["page_title"] = title_match.group(1).strip()[:80]
@@ -172,8 +175,71 @@ def _check_http(url: str) -> dict:
     return result
 
 
+# ── Detection functions ───────────────────────────────────────────────────────
+
+def detect_piracy_keywords(domain: str, path: str = "") -> tuple:
+    """Returns (bool, matched_keyword). Checks domain + path for piracy indicators."""
+    text = (domain + " " + path).lower()
+    for kw in PIRACY_KEYWORDS:
+        if kw in text:
+            return True, kw
+    return False, ""
+
+
+def detect_adult_keywords(domain: str, path: str = "") -> tuple:
+    """Returns (bool, matched_keyword). Checks domain + path for adult content indicators."""
+    text = (domain + " " + path).lower()
+    for kw in ADULT_KEYWORDS:
+        if kw in text:
+            return True, kw
+    return False, ""
+
+
+def check_domain_blocklists(domain: str) -> tuple:
+    """
+    Check domain against static blacklist + live threat feeds.
+    Returns (is_blocked, reason_string, score_addition).
+    """
+    domain = domain.lower().replace("www.", "").split(":")[0]
+    parts = domain.split(".")
+    candidates = {".".join(parts[i:]) for i in range(len(parts) - 1)}
+    candidates.add(domain)
+
+    # Static blacklist check
+    if candidates & BLACKLISTED_DOMAINS:
+        return True, "known illegal/piracy/adult domain", 90
+
+    # Live threat feed check
+    try:
+        from threat_intel.blocklist_loader import check_domain_in_feeds
+        is_blocked, feeds = check_domain_in_feeds(domain)
+        if is_blocked:
+            return True, f"threat feed match: {', '.join(feeds)}", 90
+    except Exception:
+        pass
+
+    return False, "", 0
+
+
+def _check_blacklist(domain: str) -> tuple:
+    """Legacy wrapper — used by analyze_url for fast pre-check."""
+    is_blocked, reason, _ = check_domain_blocklists(domain)
+    if is_blocked:
+        return True, reason
+
+    domain_clean = domain.lower().replace("www.", "")
+    found, kw = detect_piracy_keywords(domain_clean)
+    if found:
+        return True, f"piracy keyword: {kw}"
+
+    found, kw = detect_adult_keywords(domain_clean)
+    if found:
+        return True, f"adult keyword: {kw}"
+
+    return False, ""
+
+
 def extract_url_features(url: str, live: bool = True) -> dict:
-    """Extract all 19+ features. live=True performs real network checks."""
     try:
         if not url.startswith("http"):
             url = "http://" + url
@@ -184,15 +250,12 @@ def extract_url_features(url: str, live: bool = True) -> dict:
     domain = parsed.netloc.lower()
     if domain.startswith("www."):
         domain = domain[4:]
-    # Strip port from domain
     domain_clean = domain.split(":")[0]
-
     path = parsed.path.lower()
     full = url.lower()
     parts = domain_clean.split(".")
     tld = "." + parts[-1] if parts else ""
 
-    # ── Static features (always computed) ────────────────────────────────────
     has_ip = _is_ip_address(domain_clean)
     is_trusted = any(domain_clean == td or domain_clean.endswith("." + td) for td in TRUSTED_DOMAINS)
     keyword_count = sum(1 for kw in PHISHING_KEYWORDS if kw in full)
@@ -220,32 +283,22 @@ def extract_url_features(url: str, live: bool = True) -> dict:
         "digit_ratio":       round(sum(c.isdigit() for c in domain_clean) / max(len(domain_clean), 1), 3),
     }
 
-    # ── Live network features ─────────────────────────────────────────────────
     if live and not has_ip:
         ip, resolved = _dns_resolve(domain_clean)
-        features["resolved_ip"]    = ip
-        features["dns_resolved"]   = int(resolved)
-
+        features["resolved_ip"]  = ip
+        features["dns_resolved"] = int(resolved)
         ssl_info = _check_ssl(domain_clean) if parsed.scheme == "https" else \
                    {"ssl_valid": 0, "ssl_days_left": -1, "ssl_issuer": ""}
         features.update(ssl_info)
-
-        whois_info = _check_whois(domain_clean)
-        features.update(whois_info)
-
-        http_info = _check_http(url)
-        features.update(http_info)
+        features.update(_check_whois(domain_clean))
+        features.update(_check_http(url))
     elif live and has_ip:
-        features["resolved_ip"]    = domain_clean
-        features["dns_resolved"]   = 1
-        features["ssl_valid"]      = 0
-        features["ssl_days_left"]  = -1
-        features["ssl_issuer"]     = ""
-        features["domain_age_days"] = -1
-        features["registrar"]      = ""
-        features["whois_available"] = 0
-        http_info = _check_http(url)
-        features.update(http_info)
+        features.update({
+            "resolved_ip": domain_clean, "dns_resolved": 1,
+            "ssl_valid": 0, "ssl_days_left": -1, "ssl_issuer": "",
+            "domain_age_days": -1, "registrar": "", "whois_available": 0
+        })
+        features.update(_check_http(url))
 
     return features
 
@@ -260,34 +313,9 @@ def _empty_features() -> dict:
     ]}
 
 
-def _check_blacklist(domain: str) -> tuple[bool, str]:
-    """Check if domain or any parent domain is blacklisted."""
-    domain = domain.lower().replace("www.", "")
-    # Direct match
-    if domain in BLACKLISTED_DOMAINS:
-        return True, "blacklisted"
-    # Check parent domains (e.g. sub.ibomma.com -> ibomma.com)
-    parts = domain.split(".")
-    for i in range(len(parts) - 1):
-        parent = ".".join(parts[i:])
-        if parent in BLACKLISTED_DOMAINS:
-            return True, "blacklisted"
-    # Keyword match in domain name itself
-    piracy_domain_keywords = [
-        "torrent", "pirate", "crack", "warez", "nulled", "ibomma",
-        "movierulz", "tamilrock", "filmyzilla", "9xmovie", "bollyflix",
-        "kuttymovie", "isaimini", "tamilgun", "cinemavilla", "moviesda",
-        "netmirror", "vegamovie", "hdhub", "skymovie", "filmywap"
-    ]
-    if any(kw in domain for kw in piracy_domain_keywords):
-        return True, "piracy"
-    return False, ""
-
-
-def rule_based_url_score(features: dict) -> tuple[float, str]:
+def rule_based_url_score(features: dict) -> tuple:
     score = 0.0
 
-    # Positive signals (reduce score)
     if features.get("is_trusted_domain"):   score -= 35
     if features.get("is_https"):            score -= 10
     if features.get("ssl_valid", 0):        score -= 10
@@ -296,21 +324,25 @@ def rule_based_url_score(features: dict) -> tuple[float, str]:
     if age > 365:                           score -= 10
     elif age > 90:                          score -= 5
 
-    # Risk signals (increase score)
     if features.get("has_ip"):              score += 35
     if features.get("suspicious_tld"):      score += 30
     if not features.get("dns_resolved", 1): score += 20
     score += features.get("keyword_count", 0) * 8
     score += features.get("num_subdomains", 0) * 5
-    if features.get("url_length", 0) > 75: score += 10
+    if features.get("url_length", 0) > 75:  score += 10
     if features.get("domain_entropy", 0) > 3.5: score += 10
     if features.get("has_at_symbol"):       score += 20
     if features.get("digit_ratio", 0) > 0.3: score += 10
     if features.get("redirect_count", 0) > 2: score += 15
-    if 0 < age < 30:                        score += 25  # very new domain
+    if 0 < age < 30:                        score += 25
     elif 30 <= age < 90:                    score += 10
     if features.get("http_status", 0) in (0, 403, 404, 500): score += 10
     if not features.get("ssl_valid", 1) and features.get("is_https"): score += 15
+
+    # Piracy / adult scoring
+    score += features.get("_piracy_score", 0)
+    score += features.get("_adult_score", 0)
+    score += features.get("_blocklist_score", 0)
 
     score = max(0.0, min(100.0, score))
     label = "safe" if score < 30 else "suspicious" if score < 60 else "malicious"
@@ -318,38 +350,79 @@ def rule_based_url_score(features: dict) -> tuple[float, str]:
 
 
 def analyze_url(url: str, live: bool = True) -> dict:
-    # ── Blacklist check first — instant malicious verdict ─────────────────
     try:
         parsed_check = urlparse(url if url.startswith("http") else "http://" + url)
         domain_check = parsed_check.netloc.lower().replace("www.", "").split(":")[0]
+        path_check = parsed_check.path.lower()
     except Exception:
         domain_check = ""
+        path_check = ""
 
-    is_blacklisted, blacklist_reason = _check_blacklist(domain_check)
+    # ── Content classification ────────────────────────────────────────────────
+    piracy_found, piracy_kw   = detect_piracy_keywords(domain_check, path_check)
+    adult_found,  adult_kw    = detect_adult_keywords(domain_check, path_check)
+    is_blocked, block_reason, blocklist_score = check_domain_blocklists(domain_check)
 
-    # Check piracy keywords in full URL
-    piracy_hit = sum(1 for kw in PIRACY_KEYWORDS if kw in url.lower())
+    parsed_tld = "." + domain_check.split(".")[-1] if "." in domain_check else ""
 
-    if is_blacklisted or piracy_hit >= 2:
+    # Build detection_reasons
+    detection_reasons = []
+    if piracy_found:
+        detection_reasons.append(f"Piracy keyword: {piracy_kw}")
+    if adult_found:
+        detection_reasons.append(f"Adult keyword: {adult_kw}")
+    if is_blocked:
+        detection_reasons.append(f"Blocklist match: {block_reason}")
+    if parsed_tld in SUSPICIOUS_TLDS:
+        detection_reasons.append(f"Suspicious TLD: {parsed_tld}")
+
+    is_high_risk = bool(piracy_found or adult_found or is_blocked)
+
+    # Compute scores from booleans
+    piracy_score    = 50 if piracy_found else 0
+    adult_score     = 60 if adult_found  else 0
+
+    if is_high_risk:
         features = extract_url_features(url, live=False)
-        features["is_blacklisted"] = 1
-        features["blacklist_reason"] = blacklist_reason or "piracy keywords"
-        features["piracy_keyword_count"] = piracy_hit
+        features["_piracy_score"]    = piracy_score
+        features["_adult_score"]     = adult_score
+        features["_blocklist_score"] = blocklist_score
+        features["is_blacklisted"]   = 1
+        features["blacklist_reason"] = " | ".join(detection_reasons)
         return {
             "url": url,
             "risk_score": 100.0,
             "label": "malicious",
+            "risk_level": "HIGH RISK",
             "blacklisted": True,
-            "blacklist_reason": blacklist_reason or "piracy keywords detected",
+            "blacklist_reason": " | ".join(detection_reasons),
+            "detection_reasons": detection_reasons,
+            "category": "adult" if adult_found else "piracy" if piracy_found else "malware",
             **features
         }
 
+    # Normal analysis path
     features = extract_url_features(url, live=live)
-    features["is_blacklisted"] = 0
+    features["_piracy_score"]    = 0
+    features["_adult_score"]     = 0
+    features["_blocklist_score"] = 0
+    features["is_blacklisted"]   = 0
     features["blacklist_reason"] = ""
-    features["piracy_keyword_count"] = piracy_hit
+
     risk_score, label = rule_based_url_score(features)
-    return {"url": url, "risk_score": risk_score, "label": label, "blacklisted": False, **features}
+    risk_level = "SAFE" if risk_score < 30 else "SUSPICIOUS" if risk_score < 60 else "HIGH RISK"
+
+    return {
+        "url": url,
+        "risk_score": risk_score,
+        "label": label,
+        "risk_level": risk_level,
+        "blacklisted": False,
+        "blacklist_reason": " | ".join(detection_reasons),
+        "detection_reasons": detection_reasons,
+        "category": "normal",
+        **features
+    }
 
 
 def analyze_urls_batch(urls: list, live: bool = True) -> pd.DataFrame:

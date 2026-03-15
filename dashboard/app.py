@@ -419,7 +419,16 @@ elif page == "🔗 URL Analyzer":
                 use_container_width=True,
                 key="single_url_gauge"
             )
-            if result.get("blacklisted"):
+            detection_reasons = result.get("detection_reasons", [])
+            if detection_reasons:
+                for reason in detection_reasons:
+                    st.markdown(
+                        f'<div style="background:#3d1a1a;border-left:4px solid #e74c3c;'
+                        f'border-radius:6px;padding:8px 12px;margin:4px 0;color:#e74c3c;'
+                        f'font-size:0.9em">🚨 {reason}</div>',
+                        unsafe_allow_html=True
+                    )
+            elif result.get("blacklisted"):
                 st.error(f"🚫 BLACKLISTED — {result.get('blacklist_reason', 'illegal/piracy site')}")
             elif result["label"] == "malicious":
                 st.error("🚨 MALICIOUS — Do not visit this URL")
