@@ -1,0 +1,112 @@
+[
+  {
+    "id": "E001",
+    "sender": "security@paypa1.com",
+    "sender_name": "PayPal Security",
+    "subject": "URGENT: Your account has been suspended",
+    "body": "Dear Customer, Your PayPal account has been suspended due to suspicious activity. Click here immediately to verify your credentials: http://paypa1-secure.xyz/login?verify=true. Failure to act within 24 hours will result in permanent account closure.",
+    "timestamp": "2024-01-15 02:34:00",
+    "urls": ["http://paypa1-secure.xyz/login?verify=true"],
+    "label": "phishing",
+    "language": "english"
+  },
+  {
+    "id": "E002",
+    "sender": "noreply@sbi-bank-verify.net",
+    "sender_name": "SBI Bank",
+    "subject": "Aapka account band hone wala hai - Turant karwai karein",
+    "body": "Priya Grahak, Aapka SBI account 24 ghante mein band ho jayega. Apna OTP share karo aur account verify karein: http://sbi-verify.net/otp-confirm. Account suspend hone wala hai, abhi action lein.",
+    "timestamp": "2024-01-15 03:12:00",
+    "urls": ["http://sbi-verify.net/otp-confirm"],
+    "label": "phishing",
+    "language": "hinglish"
+  },
+  {
+    "id": "E003",
+    "sender": "hr@company.com",
+    "sender_name": "HR Department",
+    "subject": "Q4 Performance Review Schedule",
+    "body": "Hi Team, Please find attached the Q4 performance review schedule. Reviews will be conducted between January 20-31. Please confirm your availability by replying to this email. Best regards, HR Team",
+    "timestamp": "2024-01-15 09:15:00",
+    "urls": [],
+    "label": "safe",
+    "language": "english"
+  },
+  {
+    "id": "E004",
+    "sender": "alerts@hdfc-secure-login.tk",
+    "sender_name": "HDFC Bank",
+    "subject": "Immediate Action Required - Account Verification",
+    "body": "Your HDFC Bank account requires immediate verification. Your account will be blocked if you do not update your KYC within 48 hours. Login now: http://hdfc-secure-login.tk/verify-kyc",
+    "timestamp": "2024-01-15 01:22:00",
+    "urls": ["http://hdfc-secure-login.tk/verify-kyc"],
+    "label": "phishing",
+    "language": "english"
+  },
+  {
+    "id": "E005",
+    "sender": "newsletter@amazon.com",
+    "sender_name": "Amazon",
+    "subject": "Your order has been shipped",
+    "body": "Hello, Your order #123-456-789 has been shipped and will arrive by January 18. Track your package at amazon.com/orders. Thank you for shopping with us.",
+    "timestamp": "2024-01-15 10:30:00",
+    "urls": ["https://www.amazon.com/orders"],
+    "label": "safe",
+    "language": "english"
+  },
+  {
+    "id": "E006",
+    "sender": "support@icici-bank-update.com",
+    "sender_name": "ICICI Bank Support",
+    "subject": "உங்கள் கணக்கு சரிபார்க்கப்பட வேண்டும்",
+    "body": "அன்புள்ள வாடிக்கையாளர், உங்கள் ICICI வங்கி கணக்கு சரிபார்க்கப்பட வேண்டும். உடனடியாக உங்கள் OTP மற்றும் கடவுச்சொல்லை உள்ளிடவும்: http://icici-verify.net/tamil-login",
+    "timestamp": "2024-01-15 04:45:00",
+    "urls": ["http://icici-verify.net/tamil-login"],
+    "label": "phishing",
+    "language": "tamil"
+  },
+  {
+    "id": "E007",
+    "sender": "no-reply@irctc.co.in",
+    "sender_name": "IRCTC",
+    "subject": "Your ticket booking confirmation",
+    "body": "Dear Passenger, Your ticket for train 12345 from Delhi to Mumbai on 20-Jan-2024 has been confirmed. PNR: 1234567890. Please carry a valid ID proof during travel.",
+    "timestamp": "2024-01-15 11:00:00",
+    "urls": ["https://www.irctc.co.in/nget/train-search"],
+    "label": "safe",
+    "language": "english"
+  },
+  {
+    "id": "E008",
+    "sender": "prize@lottery-winner-india.com",
+    "sender_name": "India National Lottery",
+    "subject": "Congratulations! You won Rs 50 Lakhs",
+    "body": "You have been selected as the winner of India National Lottery 2024. To claim your prize of Rs 50,00,000 please provide your bank account details and pay processing fee of Rs 5000 at: http://lottery-winner-india.com/claim",
+    "timestamp": "2024-01-15 00:15:00",
+    "urls": ["http://lottery-winner-india.com/claim"],
+    "label": "phishing",
+    "language": "english"
+  },
+  {
+    "id": "E009",
+    "sender": "admin@axis-bank-kyc.xyz",
+    "sender_name": "Axis Bank",
+    "subject": "మీ ఖాతా నిలిపివేయబడుతుంది - వెంటనే చర్య తీసుకోండి",
+    "body": "గౌరవనీయమైన కస్టమర్, మీ Axis Bank ఖాతా 24 గంటల్లో నిలిపివేయబడుతుంది. మీ OTP మరియు పాస్‌వర్డ్ ఇప్పుడే నమోదు చేయండి: http://axis-kyc.xyz/telugu-verify",
+    "timestamp": "2024-01-15 05:30:00",
+    "urls": ["http://axis-kyc.xyz/telugu-verify"],
+    "label": "phishing",
+    "language": "telugu"
+  },
+  {
+    "id": "E010",
+    "sender": "billing@microsoft.com",
+    "sender_name": "Microsoft",
+    "subject": "Your Microsoft 365 subscription renewal",
+    "body": "Your Microsoft 365 subscription will renew on February 1, 2024. No action is required. Your payment method on file will be charged. To manage your subscription, visit account.microsoft.com.",
+    "timestamp": "2024-01-15 08:00:00",
+    "urls": ["https://account.microsoft.com"],
+    "label": "safe",
+    "language": "english"
+  }
+]
