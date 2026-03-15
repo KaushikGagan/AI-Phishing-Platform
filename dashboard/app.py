@@ -419,7 +419,9 @@ elif page == "🔗 URL Analyzer":
                 use_container_width=True,
                 key="single_url_gauge"
             )
-            if result["label"] == "malicious":
+            if result.get("blacklisted"):
+                st.error(f"🚫 BLACKLISTED — {result.get('blacklist_reason', 'illegal/piracy site')}")
+            elif result["label"] == "malicious":
                 st.error("🚨 MALICIOUS — Do not visit this URL")
             elif result["label"] == "suspicious":
                 st.warning("⚠️ SUSPICIOUS — Proceed with caution")

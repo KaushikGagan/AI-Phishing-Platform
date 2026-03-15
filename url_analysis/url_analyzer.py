@@ -22,6 +22,57 @@ SUSPICIOUS_TLDS = {".xyz", ".tk", ".ml", ".ga", ".cf", ".gq", ".pw",
                    ".top", ".click", ".link", ".download", ".win", ".buzz",
                    ".rest", ".monster", ".icu"}
 
+# Known illegal/piracy/malicious domains — always flagged as malicious
+BLACKLISTED_DOMAINS = {
+    # Piracy - Movies/TV
+    "ibomma.com", "ibomma.net", "ibomma.in", "ibomma.org",
+    "netmirror.org", "netmirror.net", "netmirror.in",
+    "tamilrockers.com", "tamilrockers.net", "tamilrockers.ws",
+    "movierulz.com", "movierulz.net", "movierulz.tc", "movierulz.plz",
+    "filmyzilla.com", "filmyzilla.net", "filmyzilla.in",
+    "123movies.com", "123movies.net", "gomovies.com",
+    "fmovies.to", "fmovies.com", "putlocker.com", "putlockers.com",
+    "yts.mx", "yts.am", "yts.lt", "rarbg.to", "rarbg.com",
+    "1337x.to", "1337x.st", "thepiratebay.org", "thepiratebay.com",
+    "kickasstorrents.com", "kat.cr", "katcr.co",
+    "bollyflix.com", "bollyflix.in", "bolly4u.org",
+    "9xmovies.com", "9xmovies.net", "9xmovies.in",
+    "jiorockers.com", "isaimini.com", "isaidub.com",
+    "kuttymovies.com", "kuttymovies.net",
+    "tamilgun.com", "tamilgun.net", "tamilyogi.com",
+    "cinemavilla.com", "moviesda.com", "moviesda.net",
+    "downloadhub.com", "downloadhub.in", "mp4moviez.com",
+    "worldfree4u.com", "worldfree4u.net", "world4ufree.com",
+    "coolmoviez.com", "pagalworld.com", "djpunjab.com",
+    "skymovies.com", "skymovies.in", "skymovieshd.com",
+    "vegamovies.com", "vegamovies.nl", "vegamovies.in",
+    "hdhub4u.com", "hdhub4u.net", "hdhub4u.in",
+    "sdmoviespoint.com", "sdmoviespoint.in",
+    "extramovies.com", "extramovies.in",
+    "katmoviehd.com", "katmoviehd.net",
+    "moviescounter.com", "moviescounter.net",
+    "afilmywap.com", "afilmywap.in", "filmywap.com",
+    "openload.co", "streamango.com",
+    # Piracy - Software/Games
+    "crackedpc.com", "crackwatch.com", "skidrowreloaded.com",
+    "fitgirl-repacks.site", "oceanofgames.com", "igg-games.com",
+    "steamunlocked.net", "apunkagames.com",
+    # Piracy - Books/Courses
+    "libgen.is", "libgen.rs", "libgen.fun", "z-lib.org",
+    "booksc.org", "freecoursesite.com", "coursesghar.com",
+    # Adult/Illegal content
+    "xvideos.com", "xnxx.com", "pornhub.com", "xhamster.com",
+    # Gambling/Illegal betting
+    "bet365.com", "1xbet.com", "betway.com",
+}
+
+PIRACY_KEYWORDS = [
+    "torrent", "pirate", "crack", "keygen", "warez", "nulled",
+    "free-download", "full-movie", "hdrip", "bluray", "dvdrip",
+    "mkv-download", "720p", "1080p", "4k-download", "leaked",
+    "illegal", "piracy", "copyright"
+]
+
 TRUSTED_DOMAINS = {
     "google.com", "amazon.com", "microsoft.com", "apple.com", "github.com",
     "sbi.co.in", "hdfcbank.com", "icicibank.com", "axisbank.com",
@@ -209,6 +260,30 @@ def _empty_features() -> dict:
     ]}
 
 
+def _check_blacklist(domain: str) -> tuple[bool, str]:
+    """Check if domain or any parent domain is blacklisted."""
+    domain = domain.lower().replace("www.", "")
+    # Direct match
+    if domain in BLACKLISTED_DOMAINS:
+        return True, "blacklisted"
+    # Check parent domains (e.g. sub.ibomma.com -> ibomma.com)
+    parts = domain.split(".")
+    for i in range(len(parts) - 1):
+        parent = ".".join(parts[i:])
+        if parent in BLACKLISTED_DOMAINS:
+            return True, "blacklisted"
+    # Keyword match in domain name itself
+    piracy_domain_keywords = [
+        "torrent", "pirate", "crack", "warez", "nulled", "ibomma",
+        "movierulz", "tamilrock", "filmyzilla", "9xmovie", "bollyflix",
+        "kuttymovie", "isaimini", "tamilgun", "cinemavilla", "moviesda",
+        "netmirror", "vegamovie", "hdhub", "skymovie", "filmywap"
+    ]
+    if any(kw in domain for kw in piracy_domain_keywords):
+        return True, "piracy"
+    return False, ""
+
+
 def rule_based_url_score(features: dict) -> tuple[float, str]:
     score = 0.0
 
@@ -243,9 +318,38 @@ def rule_based_url_score(features: dict) -> tuple[float, str]:
 
 
 def analyze_url(url: str, live: bool = True) -> dict:
+    # ── Blacklist check first — instant malicious verdict ─────────────────
+    try:
+        parsed_check = urlparse(url if url.startswith("http") else "http://" + url)
+        domain_check = parsed_check.netloc.lower().replace("www.", "").split(":")[0]
+    except Exception:
+        domain_check = ""
+
+    is_blacklisted, blacklist_reason = _check_blacklist(domain_check)
+
+    # Check piracy keywords in full URL
+    piracy_hit = sum(1 for kw in PIRACY_KEYWORDS if kw in url.lower())
+
+    if is_blacklisted or piracy_hit >= 2:
+        features = extract_url_features(url, live=False)
+        features["is_blacklisted"] = 1
+        features["blacklist_reason"] = blacklist_reason or "piracy keywords"
+        features["piracy_keyword_count"] = piracy_hit
+        return {
+            "url": url,
+            "risk_score": 100.0,
+            "label": "malicious",
+            "blacklisted": True,
+            "blacklist_reason": blacklist_reason or "piracy keywords detected",
+            **features
+        }
+
     features = extract_url_features(url, live=live)
+    features["is_blacklisted"] = 0
+    features["blacklist_reason"] = ""
+    features["piracy_keyword_count"] = piracy_hit
     risk_score, label = rule_based_url_score(features)
-    return {"url": url, "risk_score": risk_score, "label": label, **features}
+    return {"url": url, "risk_score": risk_score, "label": label, "blacklisted": False, **features}
 
 
 def analyze_urls_batch(urls: list, live: bool = True) -> pd.DataFrame:
