@@ -304,138 +304,140 @@ elif page == "📧 Scan Email":
 # PAGE: URL ANALYZER
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == "🔗 URL Analyzer":
-    st.title("🔗 URL Risk Analyzer")
-    st.caption("Enter a URL below — all 19 features are calculated instantly.")
+    st.title("🔗 Deep Threat Intelligence URL Analyzer")
+    st.caption("Powered by domain reputation, IP intelligence, WHOIS, content scanning, and threat feeds.")
 
     from url_analysis.url_analyzer import analyze_url, analyze_urls_batch
 
-    FEATURE_LABELS = {
-        "url_length":        ("URL Length",         "Total character count of the URL"),
-        "domain_length":     ("Domain Length",       "Character count of the domain part"),
-        "num_dots":          ("Num Dots",            "Number of dots in the full URL"),
-        "num_subdomains":    ("Num Subdomains",      "Subdomain levels beyond root domain"),
-        "num_hyphens":       ("Num Hyphens",         "Hyphens in the domain name"),
-        "num_slashes":       ("Num Slashes",         "Forward slashes in the URL"),
-        "num_params":        ("Num Params",          "Query string parameters count"),
-        "has_ip":            ("Has IP Address",      "IP used instead of domain name"),
-        "is_https":          ("Is HTTPS",            "Uses secure HTTPS protocol"),
-        "suspicious_tld":    ("Suspicious TLD",      "TLD is .xyz .tk .ml .ga etc."),
-        "is_trusted_domain": ("Is Trusted Domain",   "Domain is in known-safe whitelist"),
-        "keyword_count":     ("Keyword Count",       "Phishing keywords found in URL"),
-        "has_at_symbol":     ("Has @ Symbol",        "@ in URL redirects to different host"),
-        "has_double_slash":  ("Has Double Slash",    "// in path — redirection trick"),
-        "domain_entropy":    ("Domain Entropy",      "Randomness of domain string (high = suspicious)"),
-        "path_length":       ("Path Length",         "Character count of URL path"),
-        "has_port":          ("Has Port",            "Non-standard port specified in URL"),
-        "subdomain_count":   ("Subdomain Count",     "Number of subdomain levels"),
-        "digit_ratio":       ("Digit Ratio",         "Ratio of digits in domain name"),
-    }
-
     def is_valid_url(u: str) -> bool:
-        """Returns True only if input looks like a real URL or domain."""
         import re
         u = u.strip()
-        # Must have a dot and a valid TLD-like ending
-        # Accept: http(s)://... or www.... or domain.tld patterns
         pattern = re.compile(
-            r'^(https?://)'
-            r'([a-zA-Z0-9\-]+\.)+[a-zA-Z]{2,}'
-            r'(/[^\s]*)?$'
+            r'^(https?://)([a-zA-Z0-9\-]+\.)+[a-zA-Z]{2,}(/[^\s]*)?$'
             r'|^(www\.)?([a-zA-Z0-9\-]+\.)+[a-zA-Z]{2,}(/[^\s]*)?$'
         )
         return bool(pattern.match(u)) and len(u) >= 4
 
-    # ── Single URL instant analysis ──────────────────────────────────────────
-    single_url = st.text_input(
-        "Enter a URL",
-        placeholder="https://www.google.com  or  http://paypa1-secure.xyz/login",
-        key="single_url_input"
-    )
-
-    if single_url.strip() and not is_valid_url(single_url.strip()):
-        st.error("Invalid input. Please enter a valid URL or domain (e.g. https://example.com)")
-        st.stop()
-
-    if single_url.strip() and is_valid_url(single_url.strip()):
-        result = analyze_url(single_url.strip())
+    def render_url_result(result: dict, gauge_key: str):
+        """Render the full threat-intelligence result card."""
         badge_key = "high_risk" if result["label"] == "malicious" else result["label"]
+        risk_color = {"SAFE": "#2ecc71", "SUSPICIOUS": "#f39c12", "HIGH RISK": "#e74c3c"}.get(
+            result["risk_level"], "#95a5a6"
+        )
 
-        st.divider()
         col_left, col_right = st.columns([3, 1])
 
         with col_left:
-            st.markdown(f"**URL:** `{result['url']}`")
+            # ── Primary info card ─────────────────────────────────────────────
             st.markdown(
-                f"{risk_badge(badge_key)} &nbsp; Risk Score: **{result['risk_score']}/100**",
-                unsafe_allow_html=True
+                f"""
+                <div style="background:#1a1f2e;border-radius:10px;padding:16px 20px;
+                            border-left:5px solid {risk_color};margin-bottom:12px">
+                  <div style="font-size:0.8em;color:#8899aa;margin-bottom:6px">URL</div>
+                  <div style="font-family:monospace;word-break:break-all;color:#e0e0e0">{result['url']}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
+
+            # ── Intelligence grid ─────────────────────────────────────────────
+            g1, g2, g3, g4 = st.columns(4)
+            def info_card(col, label, value):
+                col.markdown(
+                    f'<div style="background:#1a1f2e;border-radius:8px;padding:12px 14px;'
+                    f'border:1px solid #2d3748;height:80px;overflow:hidden">'
+                    f'<div style="font-size:0.75em;color:#8899aa;margin-bottom:4px">{label}</div>'
+                    f'<div style="font-size:0.92em;color:#e0e0e0;word-break:break-all;'
+                    f'line-height:1.3">{value or "—"}</div></div>',
+                    unsafe_allow_html=True,
+                )
+            info_card(g1, "Domain", result["domain"] or "—")
+            info_card(g2, "IP Address", result["ip_address"] or "Unresolved")
+            info_card(g3, "Domain Age", result["domain_age"])
+            info_card(g4, "Category", result["category"])
+
             st.divider()
-            st.subheader("Feature Breakdown")
 
-            rows = []
-            for key, (label, description) in FEATURE_LABELS.items():
-                val = result.get(key, 0)
-                # Determine if this feature is a risk signal
-                is_risk = (
-                    (key == "has_ip" and val) or
-                    (key == "suspicious_tld" and val) or
-                    (key == "has_at_symbol" and val) or
-                    (key == "has_double_slash" and val) or
-                    (key == "has_port" and val) or
-                    (key == "keyword_count" and val > 0) or
-                    (key == "is_trusted_domain" and not val) or
-                    (key == "domain_entropy" and val > 3.5) or
-                    (key == "digit_ratio" and val > 0.3) or
-                    (key == "num_subdomains" and val > 2)
-                )
-                is_good = (
-                    (key == "is_https" and val) or
-                    (key == "is_trusted_domain" and val)
-                )
-                flag = "🔴" if is_risk else ("🟢" if is_good else "⚪")
-                rows.append({
-                    "Status": flag,
-                    "Feature": label,
-                    "Value": val,
-                    "Description": description
-                })
+            # ── Threat sources ────────────────────────────────────────────────
+            if result["threat_sources"]:
+                st.markdown("**🔍 Threat Intelligence Sources**")
+                for src in result["threat_sources"]:
+                    st.markdown(
+                        f'<span style="background:#2d1a3a;border:1px solid #8e44ad;'
+                        f'border-radius:5px;padding:3px 10px;margin:3px;display:inline-block;'
+                        f'color:#c39bd3;font-size:0.85em">🛡️ {src}</span>',
+                        unsafe_allow_html=True,
+                    )
+                st.write("")
 
-            feat_df = pd.DataFrame(rows)
-            st.dataframe(
-                feat_df,
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "Status": st.column_config.TextColumn(width="small"),
-                    "Feature": st.column_config.TextColumn(width="medium"),
-                    "Value": st.column_config.NumberColumn(width="small"),
-                    "Description": st.column_config.TextColumn(width="large"),
-                }
-            )
+            # ── Detection reasons ─────────────────────────────────────────────
+            if result["detection_reasons"]:
+                st.markdown("**🚩 Detected Threats**")
+                for reason in result["detection_reasons"]:
+                    st.markdown(
+                        f'<div style="background:#2e1a1a;border-left:4px solid #e74c3c;'
+                        f'border-radius:5px;padding:7px 12px;margin:4px 0;'
+                        f'color:#e74c3c;font-size:0.88em">⚠️ {reason}</div>',
+                        unsafe_allow_html=True,
+                    )
+            else:
+                st.success("No threats detected.")
+
+            # ── Structural features ───────────────────────────────────────────
+            with st.expander("🔬 Structural URL Features"):
+                feat_rows = [
+                    {"Feature": "URL Length",       "Value": result.get("url_length", 0)},
+                    {"Feature": "Domain Length",    "Value": result.get("domain_length", 0)},
+                    {"Feature": "Num Dots",         "Value": result.get("num_dots", 0)},
+                    {"Feature": "Num Subdomains",   "Value": result.get("num_subdomains", 0)},
+                    {"Feature": "Num Hyphens",      "Value": result.get("num_hyphens", 0)},
+                    {"Feature": "Has IP in URL",    "Value": "Yes" if result.get("has_ip") else "No"},
+                    {"Feature": "Is HTTPS",         "Value": "Yes" if result.get("is_https") else "No"},
+                    {"Feature": "Suspicious TLD",   "Value": "Yes" if result.get("suspicious_tld") else "No"},
+                    {"Feature": "Trusted Domain",   "Value": "Yes" if result.get("is_trusted_domain") else "No"},
+                    {"Feature": "Keyword Count",    "Value": result.get("keyword_count", 0)},
+                    {"Feature": "Domain Entropy",   "Value": result.get("domain_entropy", 0)},
+                    {"Feature": "Registrar",        "Value": result.get("registrar", "Unknown")},
+                    {"Feature": "Country",          "Value": result.get("country", "Unknown")},
+                ]
+                st.dataframe(pd.DataFrame(feat_rows), use_container_width=True, hide_index=True)
 
         with col_right:
             st.plotly_chart(
-                score_gauge(result["risk_score"], "URL Risk Score"),
+                score_gauge(result["risk_score"], "Risk Score"),
                 use_container_width=True,
-                key="single_url_gauge"
+                key=gauge_key,
             )
-            detection_reasons = result.get("detection_reasons", [])
-            if detection_reasons:
-                for reason in detection_reasons:
-                    st.markdown(
-                        f'<div style="background:#3d1a1a;border-left:4px solid #e74c3c;'
-                        f'border-radius:6px;padding:8px 12px;margin:4px 0;color:#e74c3c;'
-                        f'font-size:0.9em">🚨 {reason}</div>',
-                        unsafe_allow_html=True
-                    )
-            elif result.get("blacklisted"):
-                st.error(f"🚫 BLACKLISTED — {result.get('blacklist_reason', 'illegal/piracy site')}")
-            elif result["label"] == "malicious":
-                st.error("🚨 MALICIOUS — Do not visit this URL")
-            elif result["label"] == "suspicious":
-                st.warning("⚠️ SUSPICIOUS — Proceed with caution")
+            # Verdict box
+            if result["risk_level"] == "HIGH RISK":
+                st.error(f"🚨 HIGH RISK\nDo not visit this URL.")
+            elif result["risk_level"] == "SUSPICIOUS":
+                st.warning(f"⚠️ SUSPICIOUS\nProceed with caution.")
             else:
-                st.success("✅ SAFE — URL appears legitimate")
+                st.success(f"✅ SAFE\nURL appears legitimate.")
+
+            st.markdown(
+                f'<div style="text-align:center;margin-top:8px;font-size:0.85em;color:#8899aa">'
+                f'Risk Score: <b style="color:{risk_color}">{result["risk_score"]}/100</b></div>',
+                unsafe_allow_html=True,
+            )
+
+    # ── Single URL analysis ───────────────────────────────────────────────────
+    single_url = st.text_input(
+        "Enter a URL to analyze",
+        placeholder="http://tamilrockers-download.xyz/movie  or  https://www.google.com",
+        key="single_url_input",
+    )
+
+    if single_url.strip() and not is_valid_url(single_url.strip()):
+        st.error("Invalid input. Please enter a valid URL (e.g. https://example.com)")
+        st.stop()
+
+    if single_url.strip() and is_valid_url(single_url.strip()):
+        with st.spinner("🔍 Running deep threat intelligence scan..."):
+            result = analyze_url(single_url.strip())
+        st.divider()
+        render_url_result(result, gauge_key="single_url_gauge")
 
     st.divider()
 
@@ -444,7 +446,7 @@ elif page == "🔗 URL Analyzer":
     url_input = st.text_area(
         "Enter multiple URLs (one per line)",
         height=100,
-        placeholder="http://suspicious-bank-login.xyz/verify\nhttps://www.google.com"
+        placeholder="http://tamilrockers-download.xyz/movie\nhttps://www.google.com\nhttp://paypa1-secure.xyz/login",
     )
 
     if st.button("🔍 Analyze All URLs", use_container_width=True):
@@ -454,31 +456,37 @@ elif page == "🔗 URL Analyzer":
         if invalid:
             st.warning(f"Skipped {len(invalid)} invalid entries: {', '.join(invalid[:3])}")
         if valid_urls:
-            with st.spinner("Analyzing URLs..."):
+            with st.spinner("Running deep threat intelligence scan on all URLs..."):
                 url_df = analyze_urls_batch(valid_urls)
 
             # Summary table
-            summary_df = url_df[["url", "label", "risk_score", "is_https",
-                                  "suspicious_tld", "keyword_count", "has_ip",
-                                  "is_trusted_domain", "domain_entropy"]].copy()
-            summary_df.columns = ["URL", "Label", "Risk Score", "HTTPS",
-                                   "Suspicious TLD", "Keywords", "Has IP",
-                                   "Trusted Domain", "Entropy"]
+            display_cols = ["url", "domain", "ip_address", "domain_age",
+                            "category", "risk_score", "risk_level"]
+            available = [c for c in display_cols if c in url_df.columns]
+            summary_df = url_df[available].copy()
+            summary_df.columns = [c.replace("_", " ").title() for c in available]
             st.dataframe(summary_df, use_container_width=True, hide_index=True)
 
-            # Comparison chart
+            # Risk score comparison chart
             url_df["short_url"] = url_df["url"].apply(lambda u: u[:45] + "..." if len(u) > 45 else u)
             fig = px.bar(
                 url_df, x="short_url", y="risk_score", color="label",
                 color_discrete_map={"safe": "#2ecc71", "suspicious": "#f39c12", "malicious": "#e74c3c"},
                 labels={"risk_score": "Risk Score", "short_url": "URL"},
-                hover_data={"url": True, "short_url": False}
+                hover_data={"url": True, "short_url": False},
             )
             fig.update_layout(
                 paper_bgcolor="rgba(0,0,0,0)", font_color="white",
-                plot_bgcolor="rgba(0,0,0,0)", xaxis_tickangle=0
+                plot_bgcolor="rgba(0,0,0,0)", xaxis_tickangle=0,
             )
             st.plotly_chart(fig, use_container_width=True, key="url_comparison_chart")
+
+            # Expand each result
+            st.subheader("Detailed Results")
+            for i, row in url_df.iterrows():
+                label_icon = {"safe": "✅", "suspicious": "⚠️", "malicious": "🚨"}.get(row["label"], "❓")
+                with st.expander(f"{label_icon} [{row['risk_level']}] {row['url'][:70]}"):
+                    render_url_result(row.to_dict(), gauge_key=f"batch_gauge_{i}")
 
 
 # ══════════════════════════════════════════════════════════════════════════════

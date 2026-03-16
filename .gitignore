@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+threat_intel/_cache/
+.env
+*.pkl
+reports/
