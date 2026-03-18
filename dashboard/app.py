@@ -102,7 +102,7 @@ with st.sidebar:
     ])
     st.divider()
 
-    if st.button("🔄 Load Sample Emails", use_container_width=True):
+    if st.button("🔄 Load Sample Emails", width='stretch'):
         with st.spinner("Processing sample emails..."):
             st.session_state.results = load_and_process_sample()
         st.success(f"Loaded {len(st.session_state.results)} emails")
@@ -165,7 +165,7 @@ if page == "🏠 Dashboard":
             hole=0.4
         )
         fig_pie.update_layout(paper_bgcolor="rgba(0,0,0,0)", font_color="white", height=300)
-        st.plotly_chart(fig_pie, use_container_width=True, key="dash_pie")
+        st.plotly_chart(fig_pie, width='stretch', key="dash_pie")
 
     with col2:
         st.subheader("Language Distribution")
@@ -178,7 +178,7 @@ if page == "🏠 Dashboard":
         )
         fig_lang.update_layout(paper_bgcolor="rgba(0,0,0,0)", font_color="white",
                                 plot_bgcolor="rgba(0,0,0,0)", height=300)
-        st.plotly_chart(fig_lang, use_container_width=True, key="dash_lang")
+        st.plotly_chart(fig_lang, width='stretch', key="dash_lang")
 
     st.subheader("Risk Score Distribution")
     fig_hist = px.histogram(
@@ -188,7 +188,7 @@ if page == "🏠 Dashboard":
     )
     fig_hist.update_layout(paper_bgcolor="rgba(0,0,0,0)", font_color="white",
                             plot_bgcolor="rgba(0,0,0,0)", height=250)
-    st.plotly_chart(fig_hist, use_container_width=True, key="dash_hist")
+    st.plotly_chart(fig_hist, width='stretch', key="dash_hist")
 
     st.subheader("📋 Email Threat Table")
     for idx, r in enumerate(results):
@@ -209,7 +209,7 @@ if page == "🏠 Dashboard":
                 st.write(f"**URL Risk:** {rr['url_risk_score']:.0f}/100")
                 st.write(f"**Anomaly:** {rr['anomaly_score']:.0f}/100")
             with c3:
-                st.plotly_chart(score_gauge(rr["final_score"]), use_container_width=True, key=f"gauge_dash_{idx}")
+                st.plotly_chart(score_gauge(rr["final_score"]), width='stretch', key=f"gauge_dash_{idx}")
             st.info(r["explanation"]["summary"])
             if rr["flags"]:
                 st.write("**Flags:** " + " | ".join(f"`{f}`" for f in rr["flags"]))
@@ -235,7 +235,7 @@ elif page == "📧 Scan Email":
                             placeholder="Paste the email body here...")
         urls_input = st.text_input("URLs (comma-separated, optional)",
                                    placeholder="http://suspicious-link.xyz/login")
-        submitted = st.form_submit_button("🔍 Analyze Email", use_container_width=True)
+        submitted = st.form_submit_button("🔍 Analyze Email", use_container_width=True)  # form buttons don't support width=
 
     if submitted and body:
         urls = [u.strip() for u in urls_input.split(",") if u.strip()] if urls_input else []
@@ -277,13 +277,13 @@ elif page == "📧 Scan Email":
                 url_df = pd.DataFrame(result["url_results"])[
                     ["url", "label", "risk_score", "is_https", "suspicious_tld", "keyword_count"]
                 ]
-                st.dataframe(url_df, use_container_width=True)
+                st.dataframe(url_df, width='stretch')
 
             st.subheader("🌐 Language Detected")
             st.info(f"Language: **{result['language'].title()}**")
 
         with col2:
-            st.plotly_chart(score_gauge(rr["final_score"], "Final Risk Score"), use_container_width=True, key="scan_final_gauge")
+            st.plotly_chart(score_gauge(rr["final_score"], "Final Risk Score"), width='stretch', key="scan_final_gauge")
             if rr["risk_level"] == "high_risk":
                 st.error(f"🚨 {rr['recommended_action']}")
             elif rr["risk_level"] == "suspicious":
@@ -295,9 +295,9 @@ elif page == "📧 Scan Email":
             tf = result["text_features"]
             feat_df = pd.DataFrame([{
                 "Feature": k.replace("_", " ").title(),
-                "Value": v
+                "Value": str(v)
             } for k, v in tf.items()])
-            st.dataframe(feat_df, use_container_width=True)
+            st.dataframe(feat_df, width='stretch')
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -400,12 +400,12 @@ elif page == "🔗 URL Analyzer":
                     {"Feature": "Registrar",        "Value": result.get("registrar", "Unknown")},
                     {"Feature": "Country",          "Value": result.get("country", "Unknown")},
                 ]
-                st.dataframe(pd.DataFrame(feat_rows), use_container_width=True, hide_index=True)
+                st.dataframe(pd.DataFrame(feat_rows), width='stretch', hide_index=True)
 
         with col_right:
             st.plotly_chart(
                 score_gauge(result["risk_score"], "Risk Score"),
-                use_container_width=True,
+                width='stretch',
                 key=gauge_key,
             )
             # Verdict box
@@ -449,7 +449,7 @@ elif page == "🔗 URL Analyzer":
         placeholder="http://tamilrockers-download.xyz/movie\nhttps://www.google.com\nhttp://paypa1-secure.xyz/login",
     )
 
-    if st.button("🔍 Analyze All URLs", use_container_width=True):
+    if st.button("🔍 Analyze All URLs", width='stretch'):
         urls = [u.strip() for u in url_input.strip().split("\n") if u.strip()]
         valid_urls = [u for u in urls if is_valid_url(u)]
         invalid = [u for u in urls if not is_valid_url(u)]
@@ -465,7 +465,7 @@ elif page == "🔗 URL Analyzer":
             available = [c for c in display_cols if c in url_df.columns]
             summary_df = url_df[available].copy()
             summary_df.columns = [c.replace("_", " ").title() for c in available]
-            st.dataframe(summary_df, use_container_width=True, hide_index=True)
+            st.dataframe(summary_df, width='stretch', hide_index=True)
 
             # Risk score comparison chart
             url_df["short_url"] = url_df["url"].apply(lambda u: u[:45] + "..." if len(u) > 45 else u)
@@ -479,7 +479,7 @@ elif page == "🔗 URL Analyzer":
                 paper_bgcolor="rgba(0,0,0,0)", font_color="white",
                 plot_bgcolor="rgba(0,0,0,0)", xaxis_tickangle=0,
             )
-            st.plotly_chart(fig, use_container_width=True, key="url_comparison_chart")
+            st.plotly_chart(fig, width='stretch', key="url_comparison_chart")
 
             # Expand each result
             st.subheader("Detailed Results")
@@ -525,7 +525,7 @@ elif page == "📊 Analytics":
                      color_discrete_sequence=px.colors.qualitative.Set2)
         fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", font_color="white",
                           plot_bgcolor="rgba(0,0,0,0)")
-        st.plotly_chart(fig, use_container_width=True, key="analytics_box")
+        st.plotly_chart(fig, width='stretch', key="analytics_box")
 
     with col2:
         st.subheader("Language-Based Attack Distribution")
@@ -535,7 +535,7 @@ elif page == "📊 Analytics":
                       barmode="stack")
         fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", font_color="white",
                            plot_bgcolor="rgba(0,0,0,0)")
-        st.plotly_chart(fig2, use_container_width=True, key="analytics_lang")
+        st.plotly_chart(fig2, width='stretch', key="analytics_lang")
 
     st.subheader("Risk Heatmap — Score Components")
     heatmap_df = df[["nlp_score", "url_risk_score", "anomaly_score", "final_score"]].T
@@ -545,7 +545,7 @@ elif page == "📊 Analytics":
         labels={"color": "Score"}, aspect="auto"
     )
     fig3.update_layout(paper_bgcolor="rgba(0,0,0,0)", font_color="white", height=300)
-    st.plotly_chart(fig3, use_container_width=True, key="analytics_heatmap")
+    st.plotly_chart(fig3, width='stretch', key="analytics_heatmap")
 
     col3, col4 = st.columns(2)
     with col3:
@@ -554,7 +554,7 @@ elif page == "📊 Analytics":
                             color_discrete_map={"safe": "#2ecc71", "suspicious": "#f39c12", "high_risk": "#e74c3c"})
         fig4.update_layout(paper_bgcolor="rgba(0,0,0,0)", font_color="white",
                            plot_bgcolor="rgba(0,0,0,0)")
-        st.plotly_chart(fig4, use_container_width=True, key="analytics_kw")
+        st.plotly_chart(fig4, width='stretch', key="analytics_kw")
 
     with col4:
         st.subheader("Urgency Score Distribution")
@@ -563,7 +563,7 @@ elif page == "📊 Analytics":
                           color_discrete_map={"safe": "#2ecc71", "suspicious": "#f39c12", "high_risk": "#e74c3c"})
         fig5.update_layout(paper_bgcolor="rgba(0,0,0,0)", font_color="white",
                            plot_bgcolor="rgba(0,0,0,0)")
-        st.plotly_chart(fig5, use_container_width=True, key="analytics_urgency")
+        st.plotly_chart(fig5, width='stretch', key="analytics_urgency")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -587,7 +587,7 @@ elif page == "🤖 Model Info":
     fig_cm = px.imshow(cm_df, text_auto=True, color_continuous_scale="Blues",
                        labels={"color": "Count"})
     fig_cm.update_layout(paper_bgcolor="rgba(0,0,0,0)", font_color="white", height=300)
-    st.plotly_chart(fig_cm, use_container_width=True, key="confusion_matrix")
+    st.plotly_chart(fig_cm, width='stretch', key="confusion_matrix")
 
     st.subheader("System Architecture")
     st.markdown("""
@@ -619,7 +619,7 @@ elif page == "🤖 Model Info":
         {"Module": k.replace("_", " ").title(), "Weight": f"{v*100:.0f}%"}
         for k, v in WEIGHTS.items()
     ])
-    st.dataframe(weights_df, use_container_width=True)
+    st.dataframe(weights_df, width='stretch')
 
     st.subheader("Supported Languages")
     st.markdown("""
@@ -664,7 +664,7 @@ elif page == "📄 Reports":
         })
 
     report_df = pd.DataFrame(report_data)
-    st.dataframe(report_df, use_container_width=True)
+    st.dataframe(report_df, width='stretch')
 
     csv = report_df.to_csv(index=False)
     st.download_button(
@@ -672,7 +672,7 @@ elif page == "📄 Reports":
         data=csv,
         file_name=f"phishguard_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
         mime="text/csv",
-        use_container_width=True
+        width='stretch'
     )
 
     json_report = json.dumps([r["risk_report"] for r in results], indent=2)
@@ -681,5 +681,5 @@ elif page == "📄 Reports":
         data=json_report,
         file_name=f"phishguard_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
         mime="application/json",
-        use_container_width=True
+        width='stretch'
     )
